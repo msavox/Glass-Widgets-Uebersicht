@@ -7,8 +7,8 @@ A minimalist glass-style widget set featuring a high-impact clock and system sta
 ![Preview](preview.png?v=1.0)
 
 ## Installation
-1. Download the `.coffee` files.
-2. Place them in your Übersicht widgets folder.
+1. **[Download gall.widget.zip](https://github.com/msavox/Glass-Widgets-Uebersicht/raw/main/gall.widget.zip)**
+2. Unzip the file into your Übersicht widgets folder.
 3. For system stats (Fans & Temp) on Intel Macs, run:
    `sudo chmod +s /usr/bin/powermetrics`
 
