@@ -9,7 +9,7 @@ A minimalist glass-style widget set featuring a high-impact clock, system stats,
 - **Persistence**: Your custom layout is automatically saved and persists across reboots and Übersicht refreshes.
 
 ## Preview
-![Preview](preview.png?v=1.1)
+![Preview](preview.png?v=1.1.2)
 
 ## Installation
 1. **[Download gall.widget.zip](https://github.com/msavox/Glass-Widgets-Uebersicht/raw/main/gall.widget.zip)**
