@@ -1,7 +1,7 @@
 {
   "name": "Glass-Widgets-Uebersicht",
-  "description": "Una collezione di widget trasparenti in stile 'Glass' per la scrivania di macOS.",
+  "description": "Una collezione di widget trasparenti in stile 'Glass' per la scrivania di macOS. Ora interattivi!",
   "author": "msavox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "image": "screenshot.png"
 }

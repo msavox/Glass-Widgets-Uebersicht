@@ -6,50 +6,31 @@
 #                                                      |___/              
 #
 # Author:  Matteo Savoia
-# Version: 1.0
+# Version: 1.5 (Lockable Draggable)
 # Release: 2026
 # ---------------------------------------------------------------------------
 
-# --- Parameters Section ---
-# Refresh Frequency (in milliseconds)
 refreshRate = 2000
-
-# Position and sizing
 posTop = "560px"
 posLeft = "15px"
 widgetWidth = "320px"
-
-# Visual styling
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"
 labelColor = "rgba(255, 255, 255, 0.4)"
 subValColor = "rgba(255, 255, 255, 0.6)"
-
-# Gauge Colors
 cpuColor = "#34C759"
 ramColor = "#32D74B"
 batColor = "#FFCC00"
-
-# Glassmorphism settings
 bgColor = "rgba(255, 255, 255, 0.08)"
 blurRadius = "25px"
 borderRadius = "22px"
 borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
-
-# Gauge dimensions
 gaugeSize = "70px"
 gaugeRadius = 32
-# The circumference of the gauge circle (2 * PI * R)
 gaugeCircumference = 201 
 
-# --- Configuration ---
 refreshFrequency: refreshRate
-
-# Bash command chain to extract system metrics:
-# 1. CPU Usage: Uses 'top' to get a snapshot and 'awk' to sum user and system percentage.
-# 2. RAM Usage: Uses 'vm_stat' for active pages and 'sysctl' for total memory.
-# 3. Battery: Uses 'pmset' to get battery level and extracts the percentage.
 command: """
   top -l 1 -n 0 | awk '/CPU usage/ {print $3 + $5 "%"}';
   used_ram=$(vm_stat | awk '/Pages active/ {print $3}' | sed 's/\\.//');
@@ -59,7 +40,6 @@ command: """
 """
 
 # --- Style ---
-# The style section defines the visual appearance using CSS-in-JS (Stylus-like syntax).
 style: """
   top: #{posTop}
   left: #{posLeft}
@@ -67,10 +47,6 @@ style: """
   font-family: #{fontFamily}
   -webkit-font-smoothing: antialiased
   color: #{mainColor}
-
-  /* Glassmorphism Effect */
-  /* backdrop-filter applies a blur to the area behind the element, 
-     creating the signature frosted glass look. */
   background: #{bgColor}
   backdrop-filter: blur(#{blurRadius})
   -webkit-backdrop-filter: blur(#{blurRadius})
@@ -79,6 +55,25 @@ style: """
   padding: 20px
   box-sizing: border-box
   box-shadow: #{boxShadow}
+  cursor: grab
+  user-select: none
+  pointer-events: auto
+
+  &.locked
+    cursor: default
+
+  .lock-btn
+    position: absolute
+    top: 8px
+    right: 12px
+    font-size: 10px
+    opacity: 0.15
+    cursor: pointer
+    transition: opacity 0.2s
+    z-index: 10
+  
+  .lock-btn:hover
+    opacity: 1
 
   .main-container
     display: flex
@@ -137,13 +132,29 @@ style: """
     font-weight: 600
     color: #{subValColor}
     margin-top: 1px
+
+  .pos-indicator
+    position: absolute
+    bottom: -25px
+    left: 50%
+    transform: translateX(-50%)
+    background: rgba(0,0,0,0.6)
+    color: white
+    font-size: 8px
+    padding: 2px 8px
+    border-radius: 10px
+    opacity: 0
+    transition: opacity 0.3s
+    pointer-events: none
+
+  .dragging .pos-indicator
+    opacity: 1
 """
 
 # --- Render ---
-# The render function returns the HTML structure of the widget.
 render: -> """
+  <div class="lock-btn" id="lock-toggle">🔓</div>
   <div class="main-container">
-    <!-- CPU Gauge -->
     <div class="chart-box">
       <div class="percentage">
         <span id="cpu-val">0%</span>
@@ -154,8 +165,6 @@ render: -> """
       </svg>
       <div class="label">CPU</div>
     </div>
-
-    <!-- RAM Gauge -->
     <div class="chart-box">
       <div class="percentage">
         <span id="ram-val">0%</span>
@@ -167,8 +176,6 @@ render: -> """
       </svg>
       <div class="label">RAM</div>
     </div>
-
-    <!-- Battery Gauge -->
     <div class="chart-box">
       <div class="percentage">
         <span id="bat-val">0%</span>
@@ -180,39 +187,77 @@ render: -> """
       <div class="label">BATT</div>
     </div>
   </div>
+  <div class="pos-indicator" id="coords">T: 0 L: 0</div>
 """
 
-# --- Update Logic ---
-# The update function is called periodically to refresh the widget content.
+# --- Logic ---
+afterRender: (domEl) ->
+  isLocked = localStorage.getItem('cpuram_locked') == 'true'
+  savedTop = localStorage.getItem('cpuram_pos_top')
+  savedLeft = localStorage.getItem('cpuram_pos_left')
+  if savedTop and savedLeft
+    domEl.style.top = savedTop
+    domEl.style.left = savedLeft
+
+  updateLockUI = ->
+    $(domEl).toggleClass('locked', isLocked)
+    $(domEl).find('#lock-toggle').text(if isLocked then '🔒' else '🔓')
+  updateLockUI()
+
+  $(domEl).find('#lock-toggle').on 'click', (e) ->
+    isLocked = !isLocked
+    localStorage.setItem('cpuram_locked', isLocked)
+    updateLockUI()
+    e.stopPropagation()
+
+  isDragging = false
+  startX = 0
+  startY = 0
+
+  $(domEl).on 'mousedown', (e) ->
+    return if isLocked or $(e.target).hasClass('lock-btn')
+    isDragging = true
+    $(domEl).addClass('dragging')
+    domEl.style.cursor = 'grabbing'
+    startX = e.clientX - domEl.offsetLeft
+    startY = e.clientY - domEl.offsetTop
+    $(document).on 'mousemove', mouseMoveHandler
+    $(document).on 'mouseup', mouseUpHandler
+
+  mouseMoveHandler = (e) ->
+    if isDragging
+      newTop = (e.clientY - startY) + 'px'
+      newLeft = (e.clientX - startX) + 'px'
+      domEl.style.top = newTop
+      domEl.style.left = newLeft
+      $(domEl).find('#coords').text("T: #{newTop} L: #{newLeft}")
+
+  mouseUpHandler = ->
+    if isDragging
+      isDragging = false
+      $(domEl).removeClass('dragging')
+      domEl.style.cursor = if isLocked then 'default' else 'grab'
+      localStorage.setItem('cpuram_pos_top', domEl.style.top)
+      localStorage.setItem('cpuram_pos_left', domEl.style.left)
+      $(document).off 'mousemove', mouseMoveHandler
+      $(document).off 'mouseup', mouseUpHandler
+
 update: (output, domEl) ->
   values = output.split('\n')
   return unless values.length >= 3
-
-  # Internal function to update the circular gauge stroke-dasharray based on percentage.
-  # The stroke-dasharray property is used to create the progress ring effect.
   updateGauge = (idCircle, idVal, pct) ->
     circumference = 201
-    # Calculate the visible part of the circle (stroke-dasharray)
     offset = circumference - (pct / 100) * circumference
     $(domEl).find("##{idCircle}").css 'stroke-dasharray', "#{circumference - offset} #{circumference}"
     $(domEl).find("##{idVal}").text("#{Math.round(pct)}%")
-
-  # 1. CPU Usage
   cpuPct = parseFloat(values[0]) || 0
   updateGauge('cpu-circle', 'cpu-val', cpuPct)
-
-  # 2. RAM Usage
   ramData = values[1].split(' ')
   if ramData.length == 2
-    # Convert active pages to GB (Page size is typically 4096 bytes)
-    # 1 GB = 1024 * 1024 * 1024 bytes
     usedGB = (parseFloat(ramData[0]) * 4096) / 1073741824
     totalGB = parseFloat(ramData[1]) / 1073741824
     ramPct = (usedGB / totalGB) * 100
-
     updateGauge('ram-circle', 'ram-val', ramPct)
     $(domEl).find("#ram-gb").text("#{usedGB.toFixed(1)}/#{Math.round(totalGB)}G")
-
-  # 3. Battery Level
   batPct = parseFloat(values[2]) || 0
   updateGauge('bat-circle', 'bat-val', batPct)

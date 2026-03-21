@@ -6,54 +6,38 @@
 #                                                      |___/              
 #
 # Author:  Matteo Savoia
-# Version: 1.0
+# Version: 1.5 (Lockable Draggable)
 # Release: 2026
 # ---------------------------------------------------------------------------
 
 # --- Parameters Section ---
-# Position and sizing
 posTop = "20px"
 posLeft = "185px"
 widgetWidth = "150px"
 widgetHeight = "160px"
-
-# Visual styling
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"
-accentColor = "#FF375F" # Used for month header and today's highlight
-thColor = "rgba(255, 255, 255, 0.4)" # Color for weekday headers
-
-# Glassmorphism settings
+accentColor = "#FF375F"
+thColor = "rgba(255, 255, 255, 0.4)"
 bgColor = "rgba(255, 255, 255, 0.08)"
 blurRadius = "25px"
 borderRadius = "22px"
 borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
-
-# Padding and spacing
 padding = "15px"
-
-# Typography
 monthFontSize = "11px"
 monthFontWeight = "800"
 thFontSize = "8px"
 thFontWeight = "700"
 tdFontSize = "10px"
 tdFontWeight = "500"
-
-# Localization/Labels
 monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 dayHeaders = ["M", "T", "W", "T", "F", "S", "S"]
 
-# --- Refresh Frequency ---
-# Refresh once per hour (3600000 ms)
 refreshFrequency: 3600000
-
-# Bash command to trigger the widget (not used for data, but required)
 command: "date +%d:%m:%y"
 
 # --- Style ---
-# The style section defines the visual appearance using CSS-in-JS (Stylus-like syntax).
 style: """
   top: #{posTop}
   left: #{posLeft}
@@ -63,18 +47,32 @@ style: """
   -webkit-font-smoothing: antialiased
   color: #{mainColor}
   background: #{bgColor}
-  
-  /* Glassmorphism Effect */
-  /* backdrop-filter applies a blur to the area behind the element, 
-     creating the signature frosted glass look of macOS and iOS. */
   backdrop-filter: blur(#{blurRadius})
   -webkit-backdrop-filter: blur(#{blurRadius})
   border-radius: #{borderRadius}
   border: #{borderStyle}
   box-shadow: #{boxShadow}
-  
   padding: #{padding}
   box-sizing: border-box
+  cursor: grab
+  user-select: none
+  pointer-events: auto
+
+  &.locked
+    cursor: default
+
+  .lock-btn
+    position: absolute
+    top: 8px
+    right: 12px
+    font-size: 10px
+    opacity: 0.15
+    cursor: pointer
+    transition: opacity 0.2s
+    z-index: 10
+  
+  .lock-btn:hover
+    opacity: 1
 
   .month
     color: #{accentColor}
@@ -105,11 +103,28 @@ style: """
     color: #{mainColor}
     border-radius: 50%
     font-weight: 800
+
+  .pos-indicator
+    position: absolute
+    bottom: -25px
+    left: 50%
+    transform: translateX(-50%)
+    background: rgba(0,0,0,0.6)
+    color: white
+    font-size: 8px
+    padding: 2px 8px
+    border-radius: 10px
+    opacity: 0
+    transition: opacity 0.3s
+    pointer-events: none
+
+  .dragging .pos-indicator
+    opacity: 1
 """
 
 # --- Render ---
-# The render function returns the HTML structure of the widget.
 render: -> """
+  <div class="lock-btn" id="lock-toggle">🔓</div>
   <div class="month" id="m-name"></div>
   <table>
     <thead>
@@ -119,48 +134,75 @@ render: -> """
     </thead>
     <tbody id="cal-body"></tbody>
   </table>
+  <div class="pos-indicator" id="coords">T: 0 L: 0</div>
 """
 
-# --- Update Logic ---
-# The update function is called periodically to refresh the widget content.
-update: (output, domEl) ->
-  # Get current date details using JavaScript's Date object.
-  d = new Date()
-  
-  # Update the month name header in the DOM.
-  $(domEl).find('#m-name').text(monthNames[d.getMonth()])
+# --- Logic ---
+afterRender: (domEl) ->
+  isLocked = localStorage.getItem('cal_locked') == 'true'
+  savedTop = localStorage.getItem('cal_pos_top')
+  savedLeft = localStorage.getItem('cal_pos_left')
+  if savedTop and savedLeft
+    domEl.style.top = savedTop
+    domEl.style.left = savedLeft
 
-  # Logic to calculate the layout of the calendar grid:
-  
-  # 1. Determine the first day of the current month.
-  # .getDay() returns 0 for Sunday, 1 for Monday, etc.
-  # We adjust it so that Monday is 0 and Sunday is 6 for our grid layout.
+  updateLockUI = ->
+    $(domEl).toggleClass('locked', isLocked)
+    $(domEl).find('#lock-toggle').text(if isLocked then '🔒' else '🔓')
+  updateLockUI()
+
+  $(domEl).find('#lock-toggle').on 'click', (e) ->
+    isLocked = !isLocked
+    localStorage.setItem('cal_locked', isLocked)
+    updateLockUI()
+    e.stopPropagation()
+
+  isDragging = false
+  startX = 0
+  startY = 0
+
+  $(domEl).on 'mousedown', (e) ->
+    return if isLocked or $(e.target).hasClass('lock-btn')
+    isDragging = true
+    $(domEl).addClass('dragging')
+    domEl.style.cursor = 'grabbing'
+    startX = e.clientX - domEl.offsetLeft
+    startY = e.clientY - domEl.offsetTop
+    $(document).on 'mousemove', mouseMoveHandler
+    $(document).on 'mouseup', mouseUpHandler
+
+  mouseMoveHandler = (e) ->
+    if isDragging
+      newTop = (e.clientY - startY) + 'px'
+      newLeft = (e.clientX - startX) + 'px'
+      domEl.style.top = newTop
+      domEl.style.left = newLeft
+      $(domEl).find('#coords').text("T: #{newTop} L: #{newLeft}")
+
+  mouseUpHandler = ->
+    if isDragging
+      isDragging = false
+      $(domEl).removeClass('dragging')
+      domEl.style.cursor = if isLocked then 'default' else 'grab'
+      localStorage.setItem('cal_pos_top', domEl.style.top)
+      localStorage.setItem('cal_pos_left', domEl.style.left)
+      $(document).off 'mousemove', mouseMoveHandler
+      $(document).off 'mouseup', mouseUpHandler
+
+update: (output, domEl) ->
+  d = new Date()
+  $(domEl).find('#m-name').text(monthNames[d.getMonth()])
   first = new Date(d.getFullYear(), d.getMonth(), 1).getDay()
   first = if first == 0 then 6 else first - 1
-  
-  # 2. Calculate the total number of days in the current month.
-  # Passing '0' as the day to the next month's constructor returns the last day of the current month.
   total = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-
-  # 3. Clear and rebuild the calendar body (tbody) dynamically.
   tbody = $(domEl).find('#cal-body').empty()
   row = $("<tr>")
-  
-  # Append empty cells for days before the 1st of the month to align weekdays.
   row.append("<td></td>") for [0...first]
-
-  # 4. Populate the days of the month.
   for day in [1..total]
-    # If the current row is full (7 days), append it to the table and start a new row.
     if row.children().length == 7
       tbody.append(row)
       row = $("<tr>")
-    
     cell = $("<td>").text(day).appendTo(row)
-    
-    # Highlight the current day with the 'today' CSS class.
     if day == d.getDate()
       cell.addClass('today')
-      
-  # 5. Append the final row to the table.
   tbody.append(row)

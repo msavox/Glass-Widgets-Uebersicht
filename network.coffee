@@ -6,54 +6,34 @@
 #                                                      |___/              
 #
 # Author:  Matteo Savoia
-# Version: 1.0
+# Version: 1.5 (Lockable Draggable)
 # Release: 2026
 # ---------------------------------------------------------------------------
 
-# --- Parameters Section ---
-# Refresh Frequency (in milliseconds)
 refreshRate = 1000
-
-# Position and sizing
 posTop = "860px"
 posLeft = "15px"
 widgetWidth = "320px"
-
-# Visual styling
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"
 titleColor = "rgba(255, 255, 255, 0.5)"
 labelColor = "rgba(255, 255, 255, 0.35)"
 barBgColor = "rgba(0, 0, 0, 0.2)"
-
-# Download Bar Colors
 downColorStart = "#64D2FF"
 downColorEnd = "#5AC8FA"
-
-# Upload Bar Colors
 upColorStart = "#FF9500"
 upColorEnd = "#FFCC00"
-
-# Glassmorphism settings
 bgColor = "rgba(255, 255, 255, 0.08)"
 blurRadius = "25px"
 borderRadius = "22px"
 borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
-
-# Smoothing Settings
-# Number of samples to use for the moving average calculation.
 movingAverageSamples = 5
 
-# --- Configuration ---
 refreshFrequency: refreshRate
-
-# Bash command to execute the network monitoring script.
-# The script 'network.sh' calculates data transfer rates by sampling interface statistics.
 command: "Glass-Widgets/lib/network.sh"
 
 # --- Style ---
-# The style section defines the visual appearance using CSS-in-JS (Stylus-like syntax).
 style: """
   top: #{posTop}
   left: #{posLeft}
@@ -61,10 +41,6 @@ style: """
   font-family: #{fontFamily}
   -webkit-font-smoothing: antialiased
   color: #{mainColor}
-
-  /* Glassmorphism Effect */
-  /* backdrop-filter applies a blur to the area behind the element, 
-     creating the signature frosted glass look. */
   background: #{bgColor}
   backdrop-filter: blur(#{blurRadius})
   -webkit-backdrop-filter: blur(#{blurRadius})
@@ -73,6 +49,25 @@ style: """
   padding: 16px
   box-sizing: border-box
   box-shadow: #{boxShadow}
+  cursor: grab
+  user-select: none
+  pointer-events: auto
+
+  &.locked
+    cursor: default
+
+  .lock-btn
+    position: absolute
+    top: 8px
+    right: 12px
+    font-size: 10px
+    opacity: 0.15
+    cursor: pointer
+    transition: opacity 0.2s
+    z-index: 10
+  
+  .lock-btn:hover
+    opacity: 1
 
   .widget-title
     display: flex
@@ -96,9 +91,6 @@ style: """
 
   .stat-row
     margin-bottom: 12px
-
-  .stat-row:last-child
-    margin-bottom: 0
 
   .header-info
     display: flex
@@ -149,17 +141,32 @@ style: """
   
   .up-fill
     background: linear-gradient(90deg, #{upColorStart}, #{upColorEnd})
+
+  .pos-indicator
+    position: absolute
+    bottom: -25px
+    left: 50%
+    transform: translateX(-50%)
+    background: rgba(0,0,0,0.6)
+    color: white
+    font-size: 8px
+    padding: 2px 8px
+    border-radius: 10px
+    opacity: 0
+    transition: opacity 0.3s
+    pointer-events: none
+
+  .dragging .pos-indicator
+    opacity: 1
 """
 
 # --- Render ---
-# The render function returns the HTML structure of the widget.
 render: -> """
+  <div class="lock-btn" id="lock-toggle">🔓</div>
   <div class="widget-title">
     <span>Network</span>
     <span class="ssid-val"><span id="ssid">Loading...</span> 📡</span>
   </div>
-
-  <!-- Download Traffic Section -->
   <div class="stat-row">
     <div class="header-info">
       <span class="label">Download</span>
@@ -172,8 +179,6 @@ render: -> """
       <div class="bar-fill down-fill" id="down-bar" style="width: 0%"></div>
     </div>
   </div>
-
-  <!-- Upload Traffic Section -->
   <div class="stat-row">
     <div class="header-info">
       <span class="label">Upload</span>
@@ -186,66 +191,92 @@ render: -> """
       <div class="bar-fill up-fill" id="up-bar" style="width: 0%"></div>
     </div>
   </div>
+  <div class="pos-indicator" id="coords">T: 0 L: 0</div>
 """
 
-# --- Update Logic ---
-# The update function is called periodically to refresh the widget content.
+# --- Logic ---
+afterRender: (domEl) ->
+  isLocked = localStorage.getItem('net_locked') == 'true'
+  savedTop = localStorage.getItem('net_pos_top')
+  savedLeft = localStorage.getItem('net_pos_left')
+  if savedTop and savedLeft
+    domEl.style.top = savedTop
+    domEl.style.left = savedLeft
+
+  updateLockUI = ->
+    $(domEl).toggleClass('locked', isLocked)
+    $(domEl).find('#lock-toggle').text(if isLocked then '🔒' else '🔓')
+  updateLockUI()
+
+  $(domEl).find('#lock-toggle').on 'click', (e) ->
+    isLocked = !isLocked
+    localStorage.setItem('net_locked', isLocked)
+    updateLockUI()
+    e.stopPropagation()
+
+  isDragging = false
+  startX = 0
+  startY = 0
+
+  $(domEl).on 'mousedown', (e) ->
+    return if isLocked or $(e.target).hasClass('lock-btn')
+    isDragging = true
+    $(domEl).addClass('dragging')
+    domEl.style.cursor = 'grabbing'
+    startX = e.clientX - domEl.offsetLeft
+    startY = e.clientY - domEl.offsetTop
+    $(document).on 'mousemove', mouseMoveHandler
+    $(document).on 'mouseup', mouseUpHandler
+
+  mouseMoveHandler = (e) ->
+    if isDragging
+      newTop = (e.clientY - startY) + 'px'
+      newLeft = (e.clientX - startX) + 'px'
+      domEl.style.top = newTop
+      domEl.style.left = newLeft
+      $(domEl).find('#coords').text("T: #{newTop} L: #{newLeft}")
+
+  mouseUpHandler = ->
+    if isDragging
+      isDragging = false
+      $(domEl).removeClass('dragging')
+      domEl.style.cursor = if isLocked then 'default' else 'grab'
+      localStorage.setItem('net_pos_top', domEl.style.top)
+      localStorage.setItem('net_pos_left', domEl.style.left)
+      $(document).off 'mousemove', mouseMoveHandler
+      $(document).off 'mouseup', mouseUpHandler
+
 update: (output, domEl) ->
-  # Parse the output from the bash script (delimited by '^')
   lines = output.split "^"
-  # Instantaneous values are doubled to convert from 0.5s sample to bytes per second
   rawDown = (Number(lines[0]) || 0) * 2
   rawUp = (Number(lines[1]) || 0) * 2
   ssidName = lines[2] || "Off"
-
-  # Manage data history for smoothing using a Moving Average (MA)
-  # This prevents the UI from flickering due to sharp bursts in network traffic.
   $el = $(domEl)
   historyDown = $el.data('hDown') || []
   historyUp = $el.data('hUp') || []
-
-  # Add new sample and maintain the window size (movingAverageSamples)
   historyDown.push(rawDown)
   historyUp.push(rawUp)
   if historyDown.length > movingAverageSamples then historyDown.shift()
   if historyUp.length > movingAverageSamples then historyUp.shift()
-
-  # Store the updated history back into the element's data
   $el.data('hDown', historyDown)
   $el.data('hUp', historyUp)
-
-  # Calculate the average of the current sample window
   avg = (arr) -> arr.reduce(((a, b) -> a + b), 0) / arr.length
   downBytes = avg(historyDown)
   upBytes = avg(historyUp)
-
-  # Track and store the maximum speed seen during this session for UI display
   mDown = $el.data('mDown') || 0
   mUp = $el.data('mUp') || 0
   if downBytes > mDown then mDown = downBytes; $el.data('mDown', mDown)
   if upBytes > mUp then mUp = upBytes; $el.data('mUp', mUp)
-
-  # Global maximum used for scaling the progress bars dynamically
-  maxSeen = $el.data('maxSeen') || (100 * 1024) # Default floor: 100 KB/s
+  maxSeen = $el.data('maxSeen') || (100 * 1024)
   currentMax = Math.max(mDown, mUp)
   if currentMax > maxSeen
     maxSeen = currentMax
     $el.data('maxSeen', maxSeen)
-
-  # Helper function to format bytes/s into human-readable strings (KB/s or MB/s)
   formatSpeed = (bytes) ->
     kb = bytes / 1024
-    if kb > 1024
-      mb = kb / 1024
-      "#{mb.toFixed(1)} MB/s"
-    else
-      "#{kb.toFixed(1)} KB/s"
-
-  # Calculate percentage fill for the bars based on the global maximum seen
+    if kb > 1024 then mb = kb / 1024; "#{mb.toFixed(1)} MB/s" else "#{kb.toFixed(1)} KB/s"
   dPct = (downBytes / maxSeen) * 100
   uPct = (upBytes / maxSeen) * 100
-
-  # Update DOM elements with calculated values
   $el.find("#down-val").text formatSpeed(downBytes)
   $el.find("#up-val").text formatSpeed(upBytes)
   $el.find("#down-max").text formatSpeed(mDown)

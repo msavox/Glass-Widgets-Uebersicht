@@ -6,45 +6,30 @@
 #                                                      |___/              
 #
 # Author:  Matteo Savoia
-# Version: 1.0
+# Version: 1.5 (Lockable Draggable)
 # Release: 2026
 # ---------------------------------------------------------------------------
 
-# --- Parameters Section ---
-# Refresh Frequency (in milliseconds) - 10 minutes
 refreshRate = 600000
-
-# Geographic location for weather data (Como, Italy)
 latitude = "45.8081"
 longitude = "9.0831"
 locationName = "Como"
-
-# Position and sizing
 posTop = "195px"
 posLeft = "15px"
 widgetWidth = "320px"
 widgetHeight = "160px"
-
-# Visual styling
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"
-
-# Glassmorphism settings
 bgColor = "rgba(255, 255, 255, 0.08)"
 blurRadius = "25px"
 borderRadius = "22px"
 borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
 
-# --- Configuration ---
 refreshFrequency: refreshRate
-
-# Bash command to fetch weather data from Open-Meteo API.
-# It requests current temperature, humidity, weather codes, daily max/min, and hourly forecasts.
 command: "curl -s 'https://api.open-meteo.com/v1/forecast?latitude=#{latitude}&longitude=#{longitude}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=1'"
 
 # --- Style ---
-# The style section defines the visual appearance using CSS-in-JS (Stylus-like syntax).
 style: """
   top: #{posTop}
   left: #{posLeft}
@@ -53,10 +38,6 @@ style: """
   font-family: #{fontFamily}
   -webkit-font-smoothing: antialiased
   color: #{mainColor}
-
-  /* Glassmorphism Effect */
-  /* backdrop-filter applies a blur to the area behind the element, 
-     creating the signature frosted glass look. */
   background: #{bgColor}
   backdrop-filter: blur(#{blurRadius})
   -webkit-backdrop-filter: blur(#{blurRadius})
@@ -66,6 +47,25 @@ style: """
   padding: 16px
   box-sizing: border-box
   overflow: hidden
+  cursor: grab
+  user-select: none
+  pointer-events: auto
+
+  &.locked
+    cursor: default
+
+  .lock-btn
+    position: absolute
+    top: 8px
+    right: 12px
+    font-size: 10px
+    opacity: 0.15
+    cursor: pointer
+    transition: opacity 0.2s
+    z-index: 10
+  
+  .lock-btn:hover
+    opacity: 1
 
   .container
     display: flex
@@ -109,7 +109,6 @@ style: """
     text-align: right
     opacity: 0.9
 
-  /* Hourly Forecast Section */
   .hourly-forecast
     display: flex
     justify-content: space-between
@@ -139,11 +138,28 @@ style: """
   .h-temp
     font-size: 10px
     font-weight: 700
+
+  .pos-indicator
+    position: absolute
+    bottom: -25px
+    left: 50%
+    transform: translateX(-50%)
+    background: rgba(0,0,0,0.6)
+    color: white
+    font-size: 8px
+    padding: 2px 8px
+    border-radius: 10px
+    opacity: 0
+    transition: opacity 0.3s
+    pointer-events: none
+
+  .dragging .pos-indicator
+    opacity: 1
 """
 
 # --- Render ---
-# The render function returns the HTML structure of the widget.
 render: -> """
+  <div class="lock-btn" id="lock-toggle">🔓</div>
   <div class="container">
     <div class="top-row">
       <div class="main-meta">
@@ -156,14 +172,63 @@ render: -> """
         <div>H:<span id="hi">--</span>° L:<span id="lo">--</span>°</div>
       </div>
     </div>
-
-    <div class="hourly-forecast" id="hourly">
-    </div>
+    <div class="hourly-forecast" id="hourly"></div>
   </div>
+  <div class="pos-indicator" id="coords">T: 0 L: 0</div>
 """
 
-# --- Update Logic ---
-# The update function is called periodically to refresh the widget content.
+# --- Logic ---
+afterRender: (domEl) ->
+  isLocked = localStorage.getItem('weather_locked') == 'true'
+  savedTop = localStorage.getItem('weather_pos_top')
+  savedLeft = localStorage.getItem('weather_pos_left')
+  if savedTop and savedLeft
+    domEl.style.top = savedTop
+    domEl.style.left = savedLeft
+
+  updateLockUI = ->
+    $(domEl).toggleClass('locked', isLocked)
+    $(domEl).find('#lock-toggle').text(if isLocked then '🔒' else '🔓')
+  updateLockUI()
+
+  $(domEl).find('#lock-toggle').on 'click', (e) ->
+    isLocked = !isLocked
+    localStorage.setItem('weather_locked', isLocked)
+    updateLockUI()
+    e.stopPropagation()
+
+  isDragging = false
+  startX = 0
+  startY = 0
+
+  $(domEl).on 'mousedown', (e) ->
+    return if isLocked or $(e.target).hasClass('lock-btn')
+    isDragging = true
+    $(domEl).addClass('dragging')
+    domEl.style.cursor = 'grabbing'
+    startX = e.clientX - domEl.offsetLeft
+    startY = e.clientY - domEl.offsetTop
+    $(document).on 'mousemove', mouseMoveHandler
+    $(document).on 'mouseup', mouseUpHandler
+
+  mouseMoveHandler = (e) ->
+    if isDragging
+      newTop = (e.clientY - startY) + 'px'
+      newLeft = (e.clientX - startX) + 'px'
+      domEl.style.top = newTop
+      domEl.style.left = newLeft
+      $(domEl).find('#coords').text("T: #{newTop} L: #{newLeft}")
+
+  mouseUpHandler = ->
+    if isDragging
+      isDragging = false
+      $(domEl).removeClass('dragging')
+      domEl.style.cursor = if isLocked then 'default' else 'grab'
+      localStorage.setItem('weather_pos_top', domEl.style.top)
+      localStorage.setItem('weather_pos_left', domEl.style.left)
+      $(document).off 'mousemove', mouseMoveHandler
+      $(document).off 'mouseup', mouseUpHandler
+
 update: (output, domEl) ->
   return if not output
   try
@@ -171,9 +236,6 @@ update: (output, domEl) ->
     curr = data.current
     daily = data.daily
     hourly = data.hourly
-
-    # Helper function to map WMO weather codes to icons and English descriptions.
-    # Reference: https://open-meteo.com/en/docs
     getWeather = (code) ->
       return ["☀️", "Clear"] if code == 0
       return ["🌤️", "Partly Cloudy"] if code <= 3
@@ -183,17 +245,12 @@ update: (output, domEl) ->
       return ["❄️", "Snow"] if code <= 77
       return ["⛈️", "Thunderstorm"] if code >= 95
       return ["☁️", "Cloudy"]
-
     [icon, desc] = getWeather(curr.weather_code)
-
-    # Update main weather information in the DOM
     $(domEl).find('#curr-temp').text("#{Math.round(curr.temperature_2m)}°")
     $(domEl).find('#weather-desc').text(desc)
     $(domEl).find('#status-icon').text(icon)
     $(domEl).find('#hi').text(Math.round(daily.temperature_2m_max[0]))
     $(domEl).find('#lo').text(Math.round(daily.temperature_2m_min[0]))
-
-    # Generate hourly forecast for the next 5 hours dynamically
     hourlyHtml = ""
     currentHour = new Date().getHours()
     for i in [1..5]
@@ -202,7 +259,6 @@ update: (output, domEl) ->
       hCode = hourly.weather_code[idx]
       [hIcon, hDesc] = getWeather(hCode)
       timeLabel = if idx >= 24 then idx-24 else idx
-
       hourlyHtml += """
         <div class="hour-item">
           <span class="h-time">#{timeLabel}</span>
