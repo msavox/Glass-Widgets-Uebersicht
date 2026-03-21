@@ -1,5 +1,5 @@
 # Glassmorphism Widgets for Übersicht - v1.0
-# Matteo Savoia 2026
+# msavox 2026
 
 A minimalist glass-style widget set featuring a high-impact clock and system stats.
 
