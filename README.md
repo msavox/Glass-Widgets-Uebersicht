@@ -1,7 +1,12 @@
-# Glassmorphism Widgets for Übersicht - v1.2
+# Glassmorphism Widgets for Übersicht - v1.3.1
 # msavox 2026
 
 A minimalist glass-style widget set featuring a high-impact clock, system stats, news, and customizable photo widgets.
+
+## New in v1.3.1: Enhanced MotoGP Widget
+- **Interactive Standings**: Toggle between **MotoGP**, **Moto2**, and **Moto3** with dedicated buttons.
+- **Race Countdown**: Real-time timer for the next Grand Prix event.
+- **Compact Layout**: Optimized list showing the Top 5 riders with smooth scrolling for the full classification.
 
 ## New in v1.2: News & Photo Widgets
 - **News Widget**: Stay updated with the latest headlines from Google News RSS. Supports multiple languages and pagination.
@@ -16,7 +21,7 @@ A minimalist glass-style widget set featuring a high-impact clock, system stats,
 - **Persistence**: Your custom layout and widget sizes are automatically saved and persist across reboots and Übersicht refreshes.
 
 ## Preview
-![Preview](preview.png?v=1.2.0)
+![Preview](preview.png?v=1.3.1)
 
 ## Installation
 1. **[Download gall.widget.zip](https://github.com/msavox/Glass-Widgets-Uebersicht/raw/main/gall.widget.zip)**
@@ -26,9 +31,10 @@ A minimalist glass-style widget set featuring a high-impact clock, system stats,
    `sudo chmod +s /usr/bin/powermetrics`
 
 ## Included Widgets
+- **MotoGP Standings** (Updated!): Real-time rankings for all categories + Race Countdown.
 - **Clock**: Large typography with date and time.
-- **Photo** (New!): Resizable frame for your custom images.
-- **News** (New!): Real-time headlines with language selection.
+- **Photo**: Resizable frame for your custom images.
+- **News**: Real-time headlines with language selection.
 - **Calendar**: Minimalist monthly view.
 - **CPU & RAM**: Live system monitoring.
 - **Top Processes**: Real-time process monitoring (CPU Core%, System Load%, and RAM usage).

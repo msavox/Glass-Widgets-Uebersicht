@@ -1,7 +1,7 @@
 {
   "name": "Glass-Widgets-Uebersicht",
-  "description": "Una collezione di widget trasparenti in stile 'Glass' per la scrivania di macOS. Ora con News e Photo Widget interattivi!",
+  "description": "Una collezione di widget trasparenti in stile 'Glass' per la scrivania di macOS. Include News, Photo e il nuovo widget MotoGP con classifiche e countdown!",
   "author": "msavox",
-  "version": "1.2.0",
+  "version": "1.3.1",
   "image": "screenshot.png"
 }

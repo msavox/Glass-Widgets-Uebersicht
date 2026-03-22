@@ -14,7 +14,7 @@ refreshFrequency: 300000
 
 style: """
   top: 20px
-  left: 690px
+  left: 360px
   width: 320px
   font-family: -apple-system, "SF Pro Display", sans-serif
   color: #fff
@@ -209,7 +209,7 @@ afterRender: (domEl) ->
   # Persistence logic
   $(domEl).css
     top: localStorage.getItem(@key + '_t') or '20px'
-    left: localStorage.getItem(@key + '_l') or '690px'
+    left: localStorage.getItem(@key + '_l') or '360px'
 
   if localStorage.getItem(@key + '_locked') == 'true'
     $(domEl).addClass('locked').find('#lock-toggle').text('🔒')

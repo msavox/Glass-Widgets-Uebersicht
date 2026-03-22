@@ -12,7 +12,7 @@
 
 # --- Parameters Section ---
 posTop = "20px"
-posLeft = "185px"
+posLeft = "190px"
 widgetWidth = "150px"
 widgetHeight = "160px"
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'

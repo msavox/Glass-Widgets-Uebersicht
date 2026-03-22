@@ -13,8 +13,8 @@
 refreshRate = 30000
 targetDisks = 'Macintosh HD - Data|Bootcamp'
 useBase10 = true
-posTop = "370px"
-posLeft = "15px"
+posTop = "380px"
+posLeft = "20px"
 widgetWidth = "320px"
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"

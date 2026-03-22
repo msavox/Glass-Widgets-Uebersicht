@@ -11,8 +11,8 @@
 # ---------------------------------------------------------------------------
 
 refreshRate = 1000
-posTop = "860px"
-posLeft = "15px"
+posTop = "920px"
+posLeft = "20px"
 widgetWidth = "320px"
 fontFamily = '-apple-system, "SF Pro Display", sans-serif'
 mainColor = "#fff"

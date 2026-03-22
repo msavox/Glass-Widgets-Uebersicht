@@ -12,7 +12,7 @@
 
 refreshRate = 5000
 posTop = "20px"
-posLeft = "15px"
+posLeft = "20px"
 widgetWidth = "150px"
 widgetHeight = "160px"
 mainColor = "#fff"

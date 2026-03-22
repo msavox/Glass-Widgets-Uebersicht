@@ -12,8 +12,8 @@
 
 # --- Parameters Section ---
 refreshRate = 4000
-posTop = "560px"
-posLeft = "350px"
+posTop = "660px"
+posLeft = "360px"
 widgetWidth = "320px"
 
 # Visual styling

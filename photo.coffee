@@ -11,8 +11,8 @@
 # ---------------------------------------------------------------------------
 
 # --- Parameters Section ---
-posTop = "380px"
-posLeft = "15px"
+posTop = "480px"
+posLeft = "360px"
 widgetWidth = "320px"
 widgetHeight = "160px"
 bgColor = "rgba(255, 255, 255, 0.08)"
