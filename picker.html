@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Photo Widget Picker</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a1a; color: white; }
+        .box { background: #2a2a2a; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; }
+        input { margin-top: 20px; color: #aaa; }
+        h2 { margin-top: 0; color: #FF375F; }
+        .status { margin-top: 20px; font-size: 14px; color: #34C759; display: none; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Glass Photo Picker</h2>
+        <p>Seleziona una foto per il tuo widget</p>
+        <input type="file" id="fileInput" accept="image/*">
+        <div id="status" class="status">Foto salvata! Chiudi questa pagina.</div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const status = document.getElementById('status');
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Limite 4MB per localStorage
+            if (file.size > 4 * 1024 * 1024) {
+                alert("File troppo grande! Scegli una foto sotto i 4MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const base64 = ev.target.result;
+                // Salviamo nel localStorage condiviso
+                localStorage.setItem('photo_widget_src', base64);
+                status.style.display = 'block';
+                // Comunichiamo al widget che è stata aggiornata
+                localStorage.setItem('photo_widget_updated', Date.now());
+                setTimeout(() => window.close(), 1500);
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>
