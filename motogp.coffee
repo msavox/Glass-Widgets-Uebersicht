@@ -10,14 +10,15 @@
 
 # MotoGP Season 2026 UUIDs
 seasonUuid = "e88b4e43-2209-47aa-8e83-0e0b1cedde6e"
-categories = 
+categories =
   motogp: "e8c110ad-64aa-4e8e-8a86-f2f152f6a942"
   moto2:  "549640b8-fd9c-4245-acfd-60e4bc38b25c"
   moto3:  "954f7e65-2ef2-4423-b949-4961cc603e45"
 
-# Next Race: Red Bull Grand Prix of The United States (2026-03-29)
-nextRaceDate = "2026-03-29T21:00:00Z" # Assuming late afternoon race in Austin
-nextRaceName = "GP of Americas 🇺🇸"
+getFlag = (iso) ->
+  return "" unless iso
+  codePoints = (127397 + c.charCodeAt(0) for c in iso.toUpperCase())
+  String.fromCodePoint(codePoints...)
 
 command: "curl -s 'https://api.motogp.pulselive.com/motogp/v1/results/standings?seasonUuid=#{seasonUuid}&categoryUuid=#{categories.motogp}'"
 
@@ -205,8 +206,8 @@ render: (output) -> """
   </div>
 
   <div class="countdown-container">
-    <div class="countdown-label" id="race-name">#{nextRaceName}</div>
-    <div class="countdown-timer" id="timer">00d 00h 00m 00s</div>
+    <div class="countdown-label" id="race-name">Loading next race…</div>
+    <div class="countdown-timer" id="timer">--d --h --m --s</div>
   </div>
 """
 
@@ -236,11 +237,6 @@ update: (output, domEl) ->
         "#{nameParts[0][0]}. #{nameParts[nameParts.length - 1]}"
       else
         rider.full_name
-
-      getFlag = (iso) ->
-        return "" unless iso
-        codePoints = (127397 + c.charCodeAt(0) for c in iso.toUpperCase())
-        String.fromCodePoint(codePoints...)
 
       flag = getFlag(rider.country?.iso)
 
@@ -283,26 +279,57 @@ afterRender: (domEl) ->
     @run cmd, (err, output) =>
       @update(output, domEl) unless err
 
-  # Countdown Timer
-  target = new Date("2026-03-29T21:00:00Z").getTime()
-  
+  # Countdown Timer — next race is fetched dynamically from the calendar
+  target = null
+
   updateTimer = =>
-    now = new Date().getTime()
-    diff = target - now
-    
+    return unless target?
+    diff = target - new Date().getTime()
+
     if diff < 0
-      $(domEl).find('#timer').text("RACE DAY")
+      $(domEl).find('#timer').text("RACE DAY 🏁")
       return
 
     days = Math.floor(diff / (1000 * 60 * 60 * 24))
     hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
     mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
     secs = Math.floor((diff % (1000 * 60)) / 1000)
-    
+
     $(domEl).find('#timer').text("#{days}d #{hours}h #{mins}m #{secs}s")
 
+  loadNextRace = =>
+    eventsCmd = "curl -s 'https://api.motogp.pulselive.com/motogp/v1/results/events?seasonUuid=#{seasonUuid}&isFinished=false'"
+    @run eventsCmd, (err, output) =>
+      return if err
+      try
+        events = JSON.parse(output)
+        return unless events?.length
+        # API returns upcoming events sorted; pick the first non-test event
+        # whose race day (date_end) hasn't passed yet.
+        now = new Date().getTime()
+        next = null
+        for ev in events
+          continue if ev.test
+          # Race day is the Sunday (date_end). Use 13:00 UTC as a sensible
+          # default race time (most European GPs run ~14:00 local).
+          raceTime = new Date("#{ev.date_end}T13:00:00Z").getTime()
+          if raceTime + (3 * 60 * 60 * 1000) > now # keep showing during the race window
+            next = ev
+            target = raceTime
+            break
+        return unless next?
+        flag = getFlag(next.country?.iso)
+        titleCase = (s) -> s.toLowerCase().replace /\b\w/g, (c) -> c.toUpperCase()
+        prettyName = titleCase(next.name).replace(/^Grand Prix Of /i, 'GP of ')
+        $(domEl).find('#race-name').text("#{prettyName} #{flag}")
+        updateTimer()
+      catch e
+        # leave placeholder text in place
+
+  loadNextRace()
   setInterval updateTimer, 1000
-  updateTimer()
+  # Refresh the calendar every hour so it rolls over after each race
+  setInterval loadNextRace, 3600000
 
   # Persistence logic
   $(domEl).css

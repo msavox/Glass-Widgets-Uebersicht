@@ -29,6 +29,8 @@ borderRadius = "22px"
 borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
 movingAverageSamples = 5
+maxWindowSamples = 60      # rolling window for bar normalization (~60s)
+maxFloorBytes = 100 * 1024 # don't normalize against anything below 100 KB/s
 
 refreshFrequency: refreshRate
 command: "Glass-Widgets/lib/network.sh"
@@ -248,9 +250,9 @@ afterRender: (domEl) ->
 
 update: (output, domEl) ->
   lines = output.split "^"
-  rawDown = (Number(lines[0]) || 0) * 2
-  rawUp = (Number(lines[1]) || 0) * 2
-  ssidName = lines[2] || "Off"
+  rawDown = Number(lines[0]) || 0
+  rawUp = Number(lines[1]) || 0
+  ssidName = (lines[2] || "Off").trim()
   $el = $(domEl)
   historyDown = $el.data('hDown') || []
   historyUp = $el.data('hUp') || []
@@ -267,16 +269,18 @@ update: (output, domEl) ->
   mUp = $el.data('mUp') || 0
   if downBytes > mDown then mDown = downBytes; $el.data('mDown', mDown)
   if upBytes > mUp then mUp = upBytes; $el.data('mUp', mUp)
-  maxSeen = $el.data('maxSeen') || (100 * 1024)
-  currentMax = Math.max(mDown, mUp)
-  if currentMax > maxSeen
-    maxSeen = currentMax
-    $el.data('maxSeen', maxSeen)
+  # Rolling-window max so the bar scale recovers after a one-off spike.
+  maxWindow = $el.data('maxWindow') || []
+  maxWindow.push(Math.max(downBytes, upBytes))
+  if maxWindow.length > maxWindowSamples then maxWindow.shift()
+  $el.data('maxWindow', maxWindow)
+  windowMax = Math.max(maxWindow...)
+  scale = Math.max(windowMax, maxFloorBytes)
   formatSpeed = (bytes) ->
     kb = bytes / 1024
     if kb > 1024 then mb = kb / 1024; "#{mb.toFixed(1)} MB/s" else "#{kb.toFixed(1)} KB/s"
-  dPct = (downBytes / maxSeen) * 100
-  uPct = (upBytes / maxSeen) * 100
+  dPct = Math.min(100, (downBytes / scale) * 100)
+  uPct = Math.min(100, (upBytes / scale) * 100)
   $el.find("#down-val").text formatSpeed(downBytes)
   $el.find("#up-val").text formatSpeed(upBytes)
   $el.find("#down-max").text formatSpeed(mDown)
