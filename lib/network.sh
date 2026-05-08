@@ -25,7 +25,10 @@ if [ -z "$SSID" ]; then
     | awk -F': ' '/Current Wi-Fi Network/ {print $2}')
 fi
 
-if [ -z "$SSID" ] || [[ "$SSID" == *"not associated"* ]] || [[ "$SSID" == *"Error"* ]]; then
+if [ -z "$SSID" ] || [[ "$SSID" == *"not associated"* ]] || [[ "$SSID" == *"Error"* ]] || [[ "$SSID" == "<redacted>" ]]; then
+  # macOS 14+ returns literal "<redacted>" when Location Services is denied
+  # to the calling app. Fall back to the hardware port label so the widget
+  # at least says something useful (e.g. "Wi-Fi").
   SSID=$(networksetup -listallhardwareports 2>/dev/null \
     | awk -v i="$INTERFACE" '/Hardware Port:/{p=$0} $0 ~ "Device: "i" *$" {sub(/Hardware Port: /,"",p); print p; exit}')
   [ -z "$SSID" ] && SSID="$INTERFACE"
