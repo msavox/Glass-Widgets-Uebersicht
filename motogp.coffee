@@ -327,9 +327,12 @@ afterRender: (domEl) ->
         # leave placeholder text in place
 
   loadNextRace()
-  setInterval updateTimer, 1000
+  # Clear any leftover intervals from a previous afterRender (widget reload)
+  clearInterval(@_timerInt) if @_timerInt?
+  clearInterval(@_raceInt)  if @_raceInt?
+  @_timerInt = setInterval updateTimer, 1000
   # Refresh the calendar every hour so it rolls over after each race
-  setInterval loadNextRace, 3600000
+  @_raceInt = setInterval loadNextRace, 3600000
 
   # Persistence logic
   $(domEl).css

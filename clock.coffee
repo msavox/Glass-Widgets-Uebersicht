@@ -28,6 +28,8 @@ boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
 waveHeight = "60px"
 waveOpacity = "0.4"
 waveColor = "#ffffff"
+swayAngle = "1.8deg"   # max tilt off-horizontal
+swayPeriod = "8s"      # full slosh cycle
 
 refreshFrequency: refreshRate
 command: "date +%H:%M"
@@ -81,6 +83,15 @@ style: """
     opacity: #{waveOpacity}
     z-index: 0
     pointer-events: none
+    transform-origin: 50% 100%
+    animation: liquid-sway #{swayPeriod} ease-in-out infinite alternate
+    will-change: transform
+
+  @keyframes liquid-sway
+    from
+      transform: rotate(-#{swayAngle})
+    to
+      transform: rotate(#{swayAngle})
 
   .label
     font-family: #{labelFont}

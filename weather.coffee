@@ -27,7 +27,7 @@ borderStyle = "1px solid rgba(255, 255, 255, 0.15)"
 boxShadow = "0 20px 50px rgba(0,0,0,0.3)"
 
 refreshFrequency: refreshRate
-command: "curl -s 'https://api.open-meteo.com/v1/forecast?latitude=#{latitude}&longitude=#{longitude}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=1'"
+command: "curl -s 'https://api.open-meteo.com/v1/forecast?latitude=#{latitude}&longitude=#{longitude}&current=temperature_2m,relative_humidity_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=temperature_2m,weather_code&timezone=auto&forecast_days=2'"
 
 # --- Style ---
 style: """
@@ -255,10 +255,11 @@ update: (output, domEl) ->
     currentHour = new Date().getHours()
     for i in [1..5]
       idx = currentHour + i
+      break if idx >= hourly.temperature_2m.length
       hTemp = Math.round(hourly.temperature_2m[idx])
       hCode = hourly.weather_code[idx]
       [hIcon, hDesc] = getWeather(hCode)
-      timeLabel = if idx >= 24 then idx-24 else idx
+      timeLabel = idx % 24
       hourlyHtml += """
         <div class="hour-item">
           <span class="h-time">#{timeLabel}</span>

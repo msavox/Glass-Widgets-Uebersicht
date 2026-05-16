@@ -160,7 +160,11 @@ update: (output, domEl) ->
       return
 
     itemsArray = Array.from(allItems)
+    @offset = Math.min(@offset, Math.max(0, itemsArray.length - 10))
     subset = itemsArray.slice(@offset, @offset + 10)
+
+    escapeHtml = (s) ->
+      String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
     html = ""
     for item, i in subset
@@ -168,14 +172,17 @@ update: (output, domEl) ->
       cleanTitle = title.replace(/\s+-\s+[^-]+$/, '')
       link = item.getElementsByTagName('link')[0]?.textContent or "#"
 
-      html += "<div class='news-item' data-url='#{link}'>
+      html += "<div class='news-item' data-url=\"#{escapeHtml(link)}\">
                 <span class='news-index'>#{@offset + i + 1}</span>
-                <div class='news-title'>#{cleanTitle}</div>
+                <div class='news-title'>#{escapeHtml(cleanTitle)}</div>
               </div>"
 
     container.html(html)
     container.find('.news-item').off('click').on 'click', (e) =>
-      @run "open '#{$(e.currentTarget).data('url')}'"
+      url = $(e.currentTarget).attr('data-url')
+      return unless url and /^https?:\/\//i.test(url)
+      escapedUrl = url.replace(/'/g, "'\\''")
+      @run "open '#{escapedUrl}'"
 
   catch e
     container.html("<div class='status-msg'>Feed Error.</div>")
